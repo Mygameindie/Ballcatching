@@ -54,6 +54,41 @@
   let currentMode = "normal";
   let CFG = MODES[currentMode];
 
+  // ===== SOUND EFFECTS =====
+  const sfxCatch = new Audio("catch.mp3");   // when collect ball
+  const sfxLose  = new Audio("catch2.mp3");  // when lose / game over
+
+  sfxCatch.preload = "auto";
+  sfxLose.preload  = "auto";
+
+  function playSFX(a) {
+    try {
+      a.currentTime = 0;
+      const p = a.play();
+      if (p && p.catch) p.catch(() => {});
+    } catch (_) {}
+  }
+
+  // unlock audio on iOS (must be inside a user gesture)
+  function unlockSFX(a) {
+    try {
+      const v = a.volume;
+      a.volume = 0;
+      const p = a.play();
+      if (p && p.then) {
+        p.then(() => {
+          a.pause();
+          a.currentTime = 0;
+          a.volume = v;
+        }).catch(() => {
+          a.volume = v;
+        });
+      } else {
+        a.volume = v;
+      }
+    } catch (_) {}
+  }
+
   // ===== IMAGES =====
   const imgBall = new Image();
   const imgBase = new Image();
@@ -112,6 +147,10 @@
   });
 
   playBtn.onclick = () => {
+    // unlock SFX on play click (iOS safe)
+    unlockSFX(sfxCatch);
+    unlockSFX(sfxLose);
+
     startScreen.style.display = "none";
     startGame();
   };
@@ -174,13 +213,13 @@
 
   function update(dt) {
     catcher.x = catcher.targetX; // ตามทันที 100%
-    catcher.x = Math.max(catcher.w/2, Math.min(W - catcher.w/2, catcher.x));
+    catcher.x = Math.max(catcher.w / 2, Math.min(W - catcher.w / 2, catcher.x));
 
     spawnTimer += dt;
     if (spawnTimer > CFG.spawn) {
       spawnTimer = 0;
       balls.push({
-        x: Math.random() * (W - BALL_W) + BALL_W/2,
+        x: Math.random() * (W - BALL_W) + BALL_W / 2,
         y: -BALL_H,
         vy: CFG.speed,
         w: BALL_W,
@@ -192,50 +231,59 @@
       const b = balls[i];
       b.y += b.vy * dt;
 
+      // catch
       if (
-        b.x > catcher.x - catcher.w/2 &&
-        b.x < catcher.x + catcher.w/2 &&
+        b.x > catcher.x - catcher.w / 2 &&
+        b.x < catcher.x + catcher.w / 2 &&
         b.y > catcher.y - catcher.h &&
         b.y < catcher.y
       ) {
-        balls.splice(i,1);
+        balls.splice(i, 1);
         score += 10;
         scoreEl.textContent = score;
+
+        // SFX: collect
+        playSFX(sfxCatch);
+
       } else if (b.y > H) {
-        balls.splice(i,1);
+        // miss
+        balls.splice(i, 1);
         lives--;
         livesEl.textContent = lives;
 
         if (lives <= 0) {
           gameOver = true;
           gameOverTimer = 0;
+
+          // SFX: lose
+          playSFX(sfxLose);
         }
       }
     }
   }
 
   function draw(dt) {
-    ctx.clearRect(0,0,W,H);
+    ctx.clearRect(0, 0, W, H);
 
     for (const b of balls) {
       if (imgBall.complete && imgBall.naturalWidth > 0) {
-        ctx.drawImage(imgBall, b.x-b.w/2, b.y-b.h/2, b.w, b.h);
+        ctx.drawImage(imgBall, b.x - b.w / 2, b.y - b.h / 2, b.w, b.h);
       }
     }
 
     const img = gameOver ? imgBaseLose : imgBase;
     if (img.complete && img.naturalWidth > 0) {
-      ctx.drawImage(img, catcher.x-BASE_W/2, catcher.y-BASE_H, BASE_W, BASE_H);
+      ctx.drawImage(img, catcher.x - BASE_W / 2, catcher.y - BASE_H, BASE_W, BASE_H);
     }
 
     if (gameOver) {
-      ctx.fillStyle="#fff";
-      ctx.font="bold 36px sans-serif";
-      ctx.textAlign="center";
-      ctx.fillText("GAME OVER", W/2, H/2);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 36px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("GAME OVER", W / 2, H / 2);
 
-      ctx.font="14px sans-serif";
-      ctx.fillText("Returning to menu...", W/2, H/2 + 28);
+      ctx.font = "14px sans-serif";
+      ctx.fillText("Returning to menu...", W / 2, H / 2 + 28);
 
       gameOverTimer += dt;
       if (gameOverTimer >= 1.2) {
