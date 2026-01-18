@@ -3,6 +3,31 @@
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d");
 
+  // ===== LOCK SCREEN (MOBILE SAFE) =====
+  (function lockScreen() {
+    document.documentElement.style.height = "100%";
+    document.body.style.height = "100%";
+    document.body.style.margin = "0";
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = "0";
+    document.body.style.left = "0";
+    document.body.style.right = "0";
+    document.body.style.bottom = "0";
+    document.body.style.width = "100%";
+    document.body.style.overscrollBehavior = "none";
+    document.body.style.touchAction = "none";
+
+    canvas.style.touchAction = "none";
+    canvas.style.display = "block";
+
+    const block = (e) => e.preventDefault();
+    window.addEventListener("touchmove", block, { passive: false });
+    window.addEventListener("gesturestart", block, { passive: false });
+    window.addEventListener("gesturechange", block, { passive: false });
+    window.addEventListener("gestureend", block, { passive: false });
+  })();
+
   const scoreEl = document.getElementById("score");
   const livesEl = document.getElementById("lives");
   const modeLabel = document.getElementById("modeLabel");
@@ -50,13 +75,6 @@
     BALL_H = imgBall.naturalHeight * BALL_SCALE;
   };
 
-  imgBase.onload = () => {
-    BASE_W = imgBase.naturalWidth * BASE_SCALE;
-    BASE_H = imgBase.naturalHeight * BASE_SCALE;
-    catcher.w = BASE_W;
-    catcher.h = BASE_H * 0.55;
-  };
-
   // ===== GAME STATE =====
   let score = 0;
   let lives = CFG.lives;
@@ -69,6 +87,13 @@
     w: BASE_W,
     h: BASE_H * 0.35,
     targetX: W / 2
+  };
+
+  imgBase.onload = () => {
+    BASE_W = imgBase.naturalWidth * BASE_SCALE;
+    BASE_H = imgBase.naturalHeight * BASE_SCALE;
+    catcher.w = BASE_W;
+    catcher.h = BASE_H * 0.55;
   };
 
   const balls = [];
@@ -91,7 +116,6 @@
     startGame();
   };
 
-  // Restart button now also returns to main screen (so you can choose mode)
   restartBtn.onclick = () => {
     goToMainScreen();
   };
@@ -102,13 +126,11 @@
     gameOver = false;
     balls.length = 0;
 
-    // reset HUD
     score = 0;
     lives = CFG.lives;
     scoreEl.textContent = score;
     livesEl.textContent = lives;
 
-    // show mode screen again
     startScreen.style.display = "flex";
   }
 
@@ -119,7 +141,6 @@
     gameOver = false;
     playing = true;
 
-    // reset spawn timing & catcher
     spawnTimer = 0;
     catcher.x = W / 2;
     catcher.targetX = W / 2;
@@ -128,10 +149,11 @@
     livesEl.textContent = lives;
   }
 
-  // ===== INPUT =====
+  // ===== INPUT (INSTANT FOLLOW) =====
   canvas.addEventListener("pointermove", e => {
     const r = canvas.getBoundingClientRect();
     catcher.targetX = (e.clientX - r.left) * (W / r.width);
+    catcher.x = catcher.targetX; // ตามนิ้วทันที
   });
 
   // ===== LOOP =====
@@ -186,7 +208,7 @@
 
         if (lives <= 0) {
           gameOver = true;
-          gameOverTimer = 0; // start countdown to return main screen
+          gameOverTimer = 0;
         }
       }
     }
@@ -195,20 +217,17 @@
   function draw(dt) {
     ctx.clearRect(0,0,W,H);
 
-    // balls
     for (const b of balls) {
       if (imgBall.complete && imgBall.naturalWidth > 0) {
         ctx.drawImage(imgBall, b.x-b.w/2, b.y-b.h/2, b.w, b.h);
       }
     }
 
-    // base (show Base2 only during gameOver moment)
     const img = gameOver ? imgBaseLose : imgBase;
     if (img.complete && img.naturalWidth > 0) {
       ctx.drawImage(img, catcher.x-BASE_W/2, catcher.y-BASE_H, BASE_W, BASE_H);
     }
 
-    // game over overlay + auto return to main screen
     if (gameOver) {
       ctx.fillStyle="#fff";
       ctx.font="bold 36px sans-serif";
@@ -218,7 +237,6 @@
       ctx.font="14px sans-serif";
       ctx.fillText("Returning to menu...", W/2, H/2 + 28);
 
-      // wait a bit so player can see Base2.png + message
       gameOverTimer += dt;
       if (gameOverTimer >= 1.2) {
         goToMainScreen();
@@ -226,7 +244,6 @@
     }
   }
 
-  // show main screen at start
   modeLabel.textContent = currentMode.toUpperCase();
   scoreEl.textContent = score;
   livesEl.textContent = lives;
