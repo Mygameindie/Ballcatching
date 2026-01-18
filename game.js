@@ -151,7 +151,7 @@
   requestAnimationFrame(loop);
 
   function update(dt) {
-    catcher.x += (catcher.targetX - catcher.x) * 0.25;
+    catcher.x = catcher.targetX; // ตามทันที 100%
     catcher.x = Math.max(catcher.w/2, Math.min(W - catcher.w/2, catcher.x));
 
     spawnTimer += dt;
